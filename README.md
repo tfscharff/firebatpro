@@ -30,6 +30,22 @@ To use a different profile:
 .\install.ps1 -ProfileName "your-profile-name"
 ```
 
+## Persist Through Firefox Updates
+
+Firefox updates will reset shortcuts to defaults. The watcher automatically re-applies your settings when this happens.
+
+### Install Watcher (runs at login)
+
+```powershell
+.\install-watcher.ps1
+```
+
+### Run Watcher Manually
+
+```powershell
+.\watcher.ps1
+```
+
 ## Uninstall
 
 Restore Firefox shortcuts to defaults:
@@ -38,11 +54,17 @@ Restore Firefox shortcuts to defaults:
 .\uninstall.ps1
 ```
 
+To remove the watcher, delete these files:
+- `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Firebat Watcher.lnk`
+- `watcher-hidden.vbs` (in project folder)
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `install.ps1` | Modifies Firefox shortcuts |
+| `install-watcher.ps1` | Sets up watcher to run at login |
+| `watcher.ps1` | Monitors shortcuts, re-applies settings on change |
 | `uninstall.ps1` | Restores default Firefox shortcuts |
 | `firebatpro.ico` | Custom bat icon |
 | `firebatpro.png` | Source image |
@@ -61,3 +83,5 @@ The installer finds existing Firefox shortcuts and modifies their properties:
 - **Icon:** `firebatpro.ico`
 
 The `--no-remote` flag allows multiple Firefox profiles to run simultaneously.
+
+The watcher uses Windows FileSystemWatcher to detect when Firefox shortcuts are modified (e.g., by Firefox updates) and automatically re-applies your custom settings.
