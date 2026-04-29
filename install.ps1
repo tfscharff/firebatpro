@@ -14,10 +14,11 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $scriptPath = $MyInvocation.MyCommand.Path
 $iconPath = Join-Path $scriptDir "firebatpro.ico"
 
-# Firefox default install location
+# Firefox paths
 $firefoxExe = "C:\Program Files\Mozilla Firefox\firefox.exe"
+$firefoxDir = "C:\Program Files\Mozilla Firefox"
 
-# Common Firefox shortcut locations
+# Common Firefox shortcut locations (single source of truth)
 $shortcutLocations = @(
     "$env:USERPROFILE\Desktop\Firefox.lnk",
     "$env:PUBLIC\Desktop\Firefox.lnk",
@@ -43,7 +44,7 @@ function Apply-FirebatSettings {
         $lnk.TargetPath = $firefoxExe
         $lnk.Arguments = "-P `"$ProfileName`" --no-remote"
         $lnk.IconLocation = "$iconPath,0"
-        $lnk.WorkingDirectory = "C:\Program Files\Mozilla Firefox"
+        $lnk.WorkingDirectory = $firefoxDir
         $lnk.Save()
         return $true
     }
@@ -54,22 +55,13 @@ function Apply-FirebatSettings {
 # WATCHER MODE
 # ============================================================
 if ($Watch) {
-    # Verify icon exists
-    if (-not (Test-Path $iconPath)) {
-        exit 1
-    }
+    if (-not (Test-Path $iconPath)) { exit 1 }
 
-    # Shortcut directories to monitor
-    $watchPaths = @(
-        @{ Dir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"; File = "Firefox.lnk" },
-        @{ Dir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"; File = "Firefox.lnk" },
-        @{ Dir = "$env:PUBLIC\Desktop"; File = "Firefox.lnk" },
-        @{ Dir = "$env:USERPROFILE\Desktop"; File = "Firefox.lnk" },
-        @{ Dir = "$env:PUBLIC\Desktop"; File = "Mozilla Firefox.lnk" },
-        @{ Dir = "$env:USERPROFILE\Desktop"; File = "Mozilla Firefox.lnk" }
-    )
+    # Derive watch paths from shortcut locations
+    $watchPaths = $shortcutLocations | ForEach-Object {
+        @{ Dir = Split-Path -Parent $_; File = Split-Path -Leaf $_ }
+    } | Sort-Object -Property Dir, File -Unique
 
-    # Create file system watchers
     $watchers = @()
 
     foreach ($watchPath in $watchPaths) {
@@ -84,9 +76,9 @@ if ($Watch) {
                 IconPath = $iconPath
                 ProfileName = $ProfileName
                 FirefoxExe = $firefoxExe
+                FirefoxDir = $firefoxDir
             }
 
-            # Shared handler for Changed and Created events
             $handler = {
                 Start-Sleep -Milliseconds 500
                 $shortcutPath = $Event.SourceEventArgs.FullPath
@@ -99,7 +91,7 @@ if ($Watch) {
                         $lnk.TargetPath = $data.FirefoxExe
                         $lnk.Arguments = "-P `"$($data.ProfileName)`" --no-remote"
                         $lnk.IconLocation = "$($data.IconPath),0"
-                        $lnk.WorkingDirectory = "C:\Program Files\Mozilla Firefox"
+                        $lnk.WorkingDirectory = $data.FirefoxDir
                         $lnk.Save()
                     }
                 }
@@ -112,7 +104,6 @@ if ($Watch) {
         }
     }
 
-    # Keep running
     try {
         while ($true) { Start-Sleep -Seconds 1 }
     } finally {
@@ -130,13 +121,11 @@ if ($Watch) {
 # INSTALL MODE (default)
 # ============================================================
 
-# Verify Firefox exists
 if (-not (Test-Path $firefoxExe)) {
     Write-Error "Firefox not found at $firefoxExe"
     exit 1
 }
 
-# Verify icon exists
 if (-not (Test-Path $iconPath)) {
     Write-Error "Icon not found at $iconPath"
     exit 1
@@ -171,17 +160,20 @@ if (-not $NoWatcher) {
     Write-Host ""
     Write-Host "Step 2: Installing watcher for persistence..." -ForegroundColor Yellow
 
+    # Kill existing watcher first
+    Get-Process powershell -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -ne $PID -and $_.CommandLine -like "*-Watch*" } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+
     # Create VBS wrapper to run PowerShell hidden
     $vbsPath = Join-Path $scriptDir "watcher-hidden.vbs"
-    $vbsContent = @"
+    @"
 Set objShell = CreateObject("WScript.Shell")
 objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$scriptPath"" -Watch -ProfileName ""$ProfileName""", 0, False
-"@
-    $vbsContent | Out-File -FilePath $vbsPath -Encoding ASCII
+"@ | Out-File -FilePath $vbsPath -Encoding ASCII
 
     # Create startup shortcut
-    $startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-    $startupShortcut = Join-Path $startupFolder "Firebat Watcher.lnk"
+    $startupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Firebat Watcher.lnk"
 
     $lnk = $shell.CreateShortcut($startupShortcut)
     $lnk.TargetPath = "wscript.exe"
