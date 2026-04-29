@@ -86,13 +86,14 @@ if ($Watch) {
                 FirefoxExe = $firefoxExe
             }
 
-            Register-ObjectEvent -InputObject $watcher -EventName Changed -Action {
+            # Shared handler for Changed and Created events
+            $handler = {
                 Start-Sleep -Milliseconds 500
                 $shortcutPath = $Event.SourceEventArgs.FullPath
-                $shell = New-Object -ComObject WScript.Shell
                 $data = $Event.MessageData
 
                 if (Test-Path $shortcutPath) {
+                    $shell = New-Object -ComObject WScript.Shell
                     $lnk = $shell.CreateShortcut($shortcutPath)
                     if ($lnk.IconLocation -notlike "*firebatpro*") {
                         $lnk.TargetPath = $data.FirefoxExe
@@ -102,23 +103,10 @@ if ($Watch) {
                         $lnk.Save()
                     }
                 }
-            } -MessageData $eventData | Out-Null
+            }
 
-            Register-ObjectEvent -InputObject $watcher -EventName Created -Action {
-                Start-Sleep -Milliseconds 500
-                $shortcutPath = $Event.SourceEventArgs.FullPath
-                $shell = New-Object -ComObject WScript.Shell
-                $data = $Event.MessageData
-
-                if (Test-Path $shortcutPath) {
-                    $lnk = $shell.CreateShortcut($shortcutPath)
-                    $lnk.TargetPath = $data.FirefoxExe
-                    $lnk.Arguments = "-P `"$($data.ProfileName)`" --no-remote"
-                    $lnk.IconLocation = "$($data.IconPath),0"
-                    $lnk.WorkingDirectory = "C:\Program Files\Mozilla Firefox"
-                    $lnk.Save()
-                }
-            } -MessageData $eventData | Out-Null
+            Register-ObjectEvent -InputObject $watcher -EventName Changed -Action $handler -MessageData $eventData | Out-Null
+            Register-ObjectEvent -InputObject $watcher -EventName Created -Action $handler -MessageData $eventData | Out-Null
 
             $watchers += $watcher
         }
