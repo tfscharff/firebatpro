@@ -20,17 +20,13 @@ That's it. The script:
 2. Installs a background watcher that re-applies settings if Firefox updates reset them
 3. Starts the watcher immediately
 
-### Custom Profile
+### Options
 
 ```powershell
+# Use a different profile
 .\install.ps1 -ProfileName "your-profile-name"
-```
 
-### Without Watcher
-
-If you don't want automatic persistence:
-
-```powershell
+# Skip watcher (no persistence through updates)
 .\install.ps1 -NoWatcher
 ```
 
@@ -44,9 +40,8 @@ If you don't want automatic persistence:
 
 | File | Purpose |
 |------|---------|
-| `install.ps1` | Setup script (shortcuts + watcher) |
+| `install.ps1` | Setup + watcher (all-in-one) |
 | `uninstall.ps1` | Restores default Firefox shortcuts |
-| `watcher.ps1` | Monitors shortcuts, re-applies on change |
 | `firebatpro.ico` | Custom bat icon |
 | `firebatpro.png` | Source image |
 
@@ -55,11 +50,3 @@ If you don't want automatic persistence:
 - Windows 10/11
 - Firefox installed at `C:\Program Files\Mozilla Firefox\`
 - PowerShell
-
-## How It Works
-
-**Arguments added to Firefox shortcut:**
-- `-P "profile-name"` - launches specific profile
-- `--no-remote` - allows multiple profiles simultaneously
-
-**Watcher:** Uses Windows FileSystemWatcher to detect shortcut changes and automatically re-apply custom settings.
