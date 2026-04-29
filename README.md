@@ -1,20 +1,63 @@
 # Firebat Pro
 
-A Windows shortcut for launching Firefox with a specific profile, featuring a custom Firefox-style bat icon.
+Replace the Firefox icon with a custom bat icon and enable multi-profile support.
 
 ## What It Does
 
-Launches Mozilla Firefox using the "default-release" profile in isolated mode (`--no-remote`), allowing you to run multiple Firefox profiles simultaneously.
+Modifies your existing Firefox shortcut to:
+- Use a custom bat-themed icon
+- Launch a specific profile (`default-release` by default)
+- Allow multiple Firefox profiles to run simultaneously
 
-## Usage
+## Installation
 
-1. Pin `Firebat Pro.lnk` to your taskbar
-2. Click to launch Firefox with your Home profile
+1. Download or clone this repo
+2. Open PowerShell in the project folder
+3. Run:
+
+```powershell
+.\install.ps1
+```
+
+4. Search "Firefox" in Start Menu - it should show the bat icon
+5. Pin to taskbar
+
+### Custom Profile
+
+To use a different profile:
+
+```powershell
+.\install.ps1 -ProfileName "your-profile-name"
+```
+
+## Uninstall
+
+Restore Firefox shortcuts to defaults:
+
+```powershell
+.\uninstall.ps1
+```
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `Firebat Pro.lnk` | Windows shortcut |
-| `firebat.ico` | Taskbar icon (required) |
-| `firebat_transparent.png` | Source image backup |
+| `install.ps1` | Modifies Firefox shortcuts |
+| `uninstall.ps1` | Restores default Firefox shortcuts |
+| `firebatpro.ico` | Custom bat icon |
+| `firebatpro.png` | Source image |
+
+## Requirements
+
+- Windows 10/11
+- Firefox installed at `C:\Program Files\Mozilla Firefox\`
+- Firefox shortcut in Start Menu or Desktop
+
+## How It Works
+
+The installer finds existing Firefox shortcuts and modifies their properties:
+
+- **Arguments:** `-P "profile-name" --no-remote`
+- **Icon:** `firebatpro.ico`
+
+The `--no-remote` flag allows multiple Firefox profiles to run simultaneously.
