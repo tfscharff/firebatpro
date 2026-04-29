@@ -1,21 +1,19 @@
 # Firebat Pro Installer
-# Modifies the regular Firefox shortcut to use custom icon and profile arguments
+# Modifies Firefox shortcuts and sets up watcher for persistence
 
 param(
     [string]$ProfileName = "default-release",
-    [string]$IconPath = ""
+    [switch]$NoWatcher
 )
 
 $ErrorActionPreference = "Stop"
 
-# Get script directory and resolve icon path
+# Resolve paths relative to script location
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if (-not $IconPath) {
-    $IconPath = Join-Path $scriptDir "firebatpro.ico"
-}
-$IconPath = (Resolve-Path $IconPath).Path
+$iconPath = Join-Path $scriptDir "firebatpro.ico"
+$watcherPath = Join-Path $scriptDir "watcher.ps1"
 
-# Firefox paths
+# Firefox default install location
 $firefoxExe = "C:\Program Files\Mozilla Firefox\firefox.exe"
 
 # Common Firefox shortcut locations
@@ -35,8 +33,8 @@ if (-not (Test-Path $firefoxExe)) {
 }
 
 # Verify icon exists
-if (-not (Test-Path $IconPath)) {
-    Write-Error "Icon not found at $IconPath"
+if (-not (Test-Path $iconPath)) {
+    Write-Error "Icon not found at $iconPath"
     exit 1
 }
 
@@ -46,33 +44,70 @@ Write-Host "Firebat Pro Installer" -ForegroundColor Cyan
 Write-Host "=====================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Profile: $ProfileName"
-Write-Host "Icon: $IconPath"
 Write-Host ""
 
+# Step 1: Modify Firefox shortcuts
+Write-Host "Step 1: Modifying Firefox shortcuts..." -ForegroundColor Yellow
 $updated = 0
 
 foreach ($path in $shortcutLocations) {
     if (Test-Path $path) {
-        Write-Host "Updating: $path"
+        Write-Host "  Updating: $path"
         $lnk = $shell.CreateShortcut($path)
         $lnk.TargetPath = $firefoxExe
         $lnk.Arguments = "-P `"$ProfileName`" --no-remote"
-        $lnk.IconLocation = "$IconPath,0"
+        $lnk.IconLocation = "$iconPath,0"
         $lnk.WorkingDirectory = "C:\Program Files\Mozilla Firefox"
         $lnk.Save()
-        Write-Host "  Done!" -ForegroundColor Green
         $updated++
     }
 }
 
-Write-Host ""
-if ($updated -gt 0) {
-    Write-Host "Updated $updated Firefox shortcut(s)!" -ForegroundColor Green
-    Write-Host "Pin the shortcut to your taskbar for the full Firebat experience."
+if ($updated -eq 0) {
+    Write-Host "  No Firefox shortcuts found." -ForegroundColor Yellow
 } else {
-    Write-Host "No Firefox shortcuts found to update." -ForegroundColor Yellow
-    Write-Host "Expected locations:"
-    foreach ($path in $shortcutLocations) {
-        Write-Host "  - $path"
-    }
+    Write-Host "  Updated $updated shortcut(s)." -ForegroundColor Green
+}
+
+# Step 2: Install watcher for persistence
+if (-not $NoWatcher) {
+    Write-Host ""
+    Write-Host "Step 2: Installing watcher for persistence..." -ForegroundColor Yellow
+
+    # Create VBS wrapper to run PowerShell hidden
+    $vbsPath = Join-Path $scriptDir "watcher-hidden.vbs"
+    $vbsContent = @"
+Set objShell = CreateObject("WScript.Shell")
+objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$watcherPath"" -ProfileName ""$ProfileName""", 0, False
+"@
+    $vbsContent | Out-File -FilePath $vbsPath -Encoding ASCII
+
+    # Create startup shortcut
+    $startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+    $startupShortcut = Join-Path $startupFolder "Firebat Watcher.lnk"
+
+    $lnk = $shell.CreateShortcut($startupShortcut)
+    $lnk.TargetPath = "wscript.exe"
+    $lnk.Arguments = "`"$vbsPath`""
+    $lnk.WorkingDirectory = $scriptDir
+    $lnk.Description = "Firebat Pro - Firefox shortcut watcher"
+    $lnk.Save()
+
+    Write-Host "  Created startup shortcut." -ForegroundColor Green
+
+    # Start watcher now
+    Write-Host "  Starting watcher..."
+    Start-Process "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
+    Write-Host "  Watcher running." -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "Installation complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:"
+Write-Host "  1. Search 'Firefox' in Start Menu - should show bat icon"
+Write-Host "  2. Pin to taskbar"
+if (-not $NoWatcher) {
+    Write-Host ""
+    Write-Host "Watcher will keep your settings through Firefox updates."
 }
