@@ -1,34 +1,22 @@
 # Firebat Pro
 
-Replace the Firefox icon with a custom bat icon and enable multi-profile support.
+Custom bat icon for Firefox with multi-profile support. Persists through Firefox updates.
 
-## What It Does
-
-- Custom bat-themed Firefox icon
-- Launches a specific profile (`default-release` by default)
-- Allows multiple Firefox profiles to run simultaneously
-- Persists through Firefox updates (via background watcher)
-
-## Installation
+## Install
 
 ```powershell
 .\install.ps1
 ```
 
-That's it. The script:
-1. Modifies your Firefox shortcuts (icon + profile args)
-2. Installs a background watcher that re-applies settings if Firefox updates reset them
-3. Starts the watcher immediately
+This modifies your Firefox shortcuts, sets up a background watcher to persist settings through updates, and starts the watcher.
 
-### Options
-
+**Options:**
 ```powershell
-# Use a different profile
-.\install.ps1 -ProfileName "your-profile-name"
-
-# Skip watcher (no persistence through updates)
-.\install.ps1 -NoWatcher
+.\install.ps1 -ProfileName "your-profile"  # Use a different profile
+.\install.ps1 -NoWatcher                   # Skip persistence (one-time setup)
 ```
+
+After installing, search "Firefox" in Start Menu and pin to taskbar.
 
 ## Uninstall
 
@@ -36,17 +24,9 @@ That's it. The script:
 .\uninstall.ps1
 ```
 
-## Files
-
-| File | Purpose |
-|------|---------|
-| `install.ps1` | Setup + watcher (all-in-one) |
-| `uninstall.ps1` | Restores default Firefox shortcuts |
-| `firebatpro.ico` | Custom bat icon |
-| `firebatpro.png` | Source image |
+Stops watcher, removes startup shortcut, restores Firefox shortcuts to defaults.
 
 ## Requirements
 
 - Windows 10/11
-- Firefox installed at `C:\Program Files\Mozilla Firefox\`
-- PowerShell
+- Firefox at `C:\Program Files\Mozilla Firefox\`
