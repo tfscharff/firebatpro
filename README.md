@@ -1,6 +1,6 @@
 # Firebat Pro
 
-Custom bat icon for Firefox with multi-profile support. Persists through Firefox updates.
+Custom bat icon for Firefox. Allows multiple profiles to run simultaneously. Persists through Firefox updates.
 
 ## Install
 
