@@ -46,7 +46,7 @@ function Set-FirebatShortcut {
     $shell = Get-ShellObject
     $lnk = $shell.CreateShortcut($ShortcutPath)
     $lnk.TargetPath = $FirefoxExe
-    $lnk.Arguments = "-P `"$ProfileName`" --no-remote"
+    $lnk.Arguments = "-P `"$ProfileName`""
     $lnk.IconLocation = "$IconPath,0"
     $lnk.WorkingDirectory = $FirefoxDir
     $lnk.Save()
