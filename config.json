@@ -1,0 +1,23 @@
+{
+  "firefox": {
+    "exePath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+    "directory": "C:\\Program Files\\Mozilla Firefox"
+  },
+  "profile": {
+    "name": "default-release"
+  },
+  "shortcuts": [
+    "%USERPROFILE%\\Desktop\\Firefox.lnk",
+    "%PUBLIC%\\Desktop\\Firefox.lnk",
+    "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
+    "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
+    "%USERPROFILE%\\Desktop\\Mozilla Firefox.lnk",
+    "%PUBLIC%\\Desktop\\Mozilla Firefox.lnk"
+  ],
+  "watcher": {
+    "debounceMs": 500
+  },
+  "logging": {
+    "maxSizeMB": 1
+  }
+}

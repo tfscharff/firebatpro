@@ -1,158 +1,156 @@
-# Firebat Pro
+# Firebat Pro - Install/Watch script
 # Custom Firefox icon with multi-profile support and persistence
 
 param(
-    [string]$ProfileName = "default-release",
+    [string]$ProfileName,
     [switch]$NoWatcher,
-    [switch]$Watch  # Internal: runs watcher mode
+    [switch]$Watch,
+    [switch]$Status
 )
 
 $ErrorActionPreference = "Stop"
-
-# Resolve paths relative to script location
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $scriptPath = $MyInvocation.MyCommand.Path
-$iconPath = Join-Path $scriptDir "firebatpro.ico"
 
-# Firefox paths
-$firefoxExe = "C:\Program Files\Mozilla Firefox\firefox.exe"
-$firefoxDir = "C:\Program Files\Mozilla Firefox"
+# Import modules
+Import-Module (Join-Path $scriptDir "modules\Config.psm1") -Force
+Import-Module (Join-Path $scriptDir "modules\Logging.psm1") -Force
+Import-Module (Join-Path $scriptDir "modules\Shortcuts.psm1") -Force
+Import-Module (Join-Path $scriptDir "modules\Watcher.psm1") -Force
 
-# Common Firefox shortcut locations (single source of truth)
-$shortcutLocations = @(
-    "$env:USERPROFILE\Desktop\Firefox.lnk",
-    "$env:PUBLIC\Desktop\Firefox.lnk",
-    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Firefox.lnk",
-    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Firefox.lnk",
-    "$env:USERPROFILE\Desktop\Mozilla Firefox.lnk",
-    "$env:PUBLIC\Desktop\Mozilla Firefox.lnk"
-)
+# Initialize config
+Initialize-Config -ScriptDirectory $scriptDir
+$config = Get-Config
 
-$shell = New-Object -ComObject WScript.Shell
+# Override profile name if provided via parameter
+if ($ProfileName) {
+    $config.ProfileName = $ProfileName
+}
 
-function Apply-FirebatSettings {
-    param([string]$ShortcutPath)
+# Initialize logging
+Initialize-Logging -MaxSizeMB $config.LogMaxSizeMB
 
-    if (Test-Path $ShortcutPath) {
-        $lnk = $shell.CreateShortcut($ShortcutPath)
+# ============================================================
+# STATUS MODE
+# ============================================================
+if ($Status) {
+    Write-Host "Firebat Pro Status" -ForegroundColor Cyan
+    Write-Host "==================" -ForegroundColor Cyan
+    Write-Host ""
 
-        # Skip if already has our settings
-        if ($lnk.IconLocation -like "*firebatpro*") {
-            return $false
-        }
-
-        $lnk.TargetPath = $firefoxExe
-        $lnk.Arguments = "-P `"$ProfileName`" --no-remote"
-        $lnk.IconLocation = "$iconPath,0"
-        $lnk.WorkingDirectory = $firefoxDir
-        $lnk.Save()
-        return $true
+    # Check Firefox
+    if (Test-Path $config.FirefoxExe) {
+        Write-Host "Firefox: " -NoNewline
+        Write-Host "Found" -ForegroundColor Green
+    } else {
+        Write-Host "Firefox: " -NoNewline
+        Write-Host "Not found at $($config.FirefoxExe)" -ForegroundColor Red
     }
-    return $false
+
+    # Check icon
+    if (Test-Path $config.IconPath) {
+        Write-Host "Icon: " -NoNewline
+        Write-Host "Found" -ForegroundColor Green
+    } else {
+        Write-Host "Icon: " -NoNewline
+        Write-Host "Not found" -ForegroundColor Red
+    }
+
+    # Check shortcuts
+    Write-Host ""
+    Write-Host "Shortcuts:" -ForegroundColor Yellow
+    Initialize-Shortcuts
+    foreach ($path in $config.ShortcutLocations) {
+        if (Test-Path $path) {
+            $isFirebat = Test-IsFirebatShortcut $path
+            $status = if ($isFirebat) { "Firebat" } else { "Default" }
+            $color = if ($isFirebat) { "Green" } else { "Gray" }
+            Write-Host "  $path : " -NoNewline
+            Write-Host $status -ForegroundColor $color
+        }
+    }
+
+    # Check watcher
+    Write-Host ""
+    $watcherRunning = Get-Process powershell -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -ne $PID -and $_.CommandLine -like "*-Watch*" }
+    Write-Host "Watcher: " -NoNewline
+    if ($watcherRunning) {
+        Write-Host "Running" -ForegroundColor Green
+    } else {
+        Write-Host "Not running" -ForegroundColor Yellow
+    }
+
+    Write-Host ""
+    Write-Host "Profile: $($config.ProfileName)"
+    Write-Host "Log: $(Get-LogPath)"
+
+    exit 0
 }
 
 # ============================================================
 # WATCHER MODE
 # ============================================================
 if ($Watch) {
-    if (-not (Test-Path $iconPath)) { exit 1 }
-
-    # Derive watch paths from shortcut locations
-    $watchPaths = $shortcutLocations | ForEach-Object {
-        @{ Dir = Split-Path -Parent $_; File = Split-Path -Leaf $_ }
-    } | Sort-Object -Property Dir, File -Unique
-
-    $watchers = @()
-
-    foreach ($watchPath in $watchPaths) {
-        if (Test-Path $watchPath.Dir) {
-            $watcher = New-Object System.IO.FileSystemWatcher
-            $watcher.Path = $watchPath.Dir
-            $watcher.Filter = $watchPath.File
-            $watcher.NotifyFilter = [System.IO.NotifyFilters]::LastWrite -bor [System.IO.NotifyFilters]::FileName
-            $watcher.EnableRaisingEvents = $true
-
-            $eventData = @{
-                IconPath = $iconPath
-                ProfileName = $ProfileName
-                FirefoxExe = $firefoxExe
-                FirefoxDir = $firefoxDir
-            }
-
-            $handler = {
-                Start-Sleep -Milliseconds 500
-                $shortcutPath = $Event.SourceEventArgs.FullPath
-                $data = $Event.MessageData
-
-                if (Test-Path $shortcutPath) {
-                    $shell = New-Object -ComObject WScript.Shell
-                    $lnk = $shell.CreateShortcut($shortcutPath)
-                    if ($lnk.IconLocation -notlike "*firebatpro*") {
-                        $lnk.TargetPath = $data.FirefoxExe
-                        $lnk.Arguments = "-P `"$($data.ProfileName)`" --no-remote"
-                        $lnk.IconLocation = "$($data.IconPath),0"
-                        $lnk.WorkingDirectory = $data.FirefoxDir
-                        $lnk.Save()
-                    }
-                }
-            }
-
-            Register-ObjectEvent -InputObject $watcher -EventName Changed -Action $handler -MessageData $eventData | Out-Null
-            Register-ObjectEvent -InputObject $watcher -EventName Created -Action $handler -MessageData $eventData | Out-Null
-
-            $watchers += $watcher
-        }
+    if (-not (Test-Path $config.IconPath)) {
+        Write-Log "Icon not found, exiting watcher" -Level ERROR
+        exit 1
     }
 
-    try {
-        while ($true) { Start-Sleep -Seconds 1 }
-    } finally {
-        foreach ($watcher in $watchers) {
-            $watcher.EnableRaisingEvents = $false
-            $watcher.Dispose()
-        }
-        Get-EventSubscriber | Unregister-Event
-    }
+    Write-Log "Watcher starting for profile: $($config.ProfileName)"
 
-    exit
+    Initialize-Watcher -IconPath $config.IconPath -ProfileName $config.ProfileName `
+        -FirefoxExe $config.FirefoxExe -FirefoxDir $config.FirefoxDir `
+        -DebounceMs $config.DebounceMs
+
+    $count = Start-ShortcutWatchers -ShortcutLocations $config.ShortcutLocations
+    Write-Log "Watching $count shortcut location(s)"
+
+    Wait-Forever
+    exit 0
 }
 
 # ============================================================
 # INSTALL MODE (default)
 # ============================================================
 
-if (-not (Test-Path $firefoxExe)) {
-    Write-Error "Firefox not found at $firefoxExe"
+if (-not (Test-Path $config.FirefoxExe)) {
+    Write-Error "Firefox not found at $($config.FirefoxExe)"
     exit 1
 }
 
-if (-not (Test-Path $iconPath)) {
-    Write-Error "Icon not found at $iconPath"
+if (-not (Test-Path $config.IconPath)) {
+    Write-Error "Icon not found at $($config.IconPath)"
     exit 1
 }
 
 Write-Host "Firebat Pro Installer" -ForegroundColor Cyan
 Write-Host "=====================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Profile: $ProfileName"
+Write-Host "Profile: $($config.ProfileName)"
 Write-Host ""
 
 # Step 1: Modify Firefox shortcuts
 Write-Host "Step 1: Modifying Firefox shortcuts..." -ForegroundColor Yellow
-$updated = 0
+Initialize-Shortcuts
 
-foreach ($path in $shortcutLocations) {
+$updated = 0
+foreach ($path in $config.ShortcutLocations) {
     if (Test-Path $path) {
         Write-Host "  Updating: $path"
-        Apply-FirebatSettings $path | Out-Null
-        $updated++
+        if (Set-FirebatShortcut -ShortcutPath $path -FirefoxExe $config.FirefoxExe `
+            -FirefoxDir $config.FirefoxDir -ProfileName $config.ProfileName `
+            -IconPath $config.IconPath) {
+            $updated++
+        }
     }
 }
 
 if ($updated -eq 0) {
-    Write-Host "  No Firefox shortcuts found." -ForegroundColor Yellow
+    Write-Host "  No Firefox shortcuts found (or already configured)." -ForegroundColor Yellow
 } else {
     Write-Host "  Updated $updated shortcut(s)." -ForegroundColor Green
+    Write-Log "Updated $updated shortcut(s)"
 }
 
 # Step 2: Install watcher for persistence
@@ -169,12 +167,12 @@ if (-not $NoWatcher) {
     $vbsPath = Join-Path $scriptDir "watcher-hidden.vbs"
     @"
 Set objShell = CreateObject("WScript.Shell")
-objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$scriptPath"" -Watch -ProfileName ""$ProfileName""", 0, False
+objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$scriptPath"" -Watch -ProfileName ""$($config.ProfileName)""", 0, False
 "@ | Out-File -FilePath $vbsPath -Encoding ASCII
 
     # Create startup shortcut
     $startupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Firebat Watcher.lnk"
-
+    $shell = New-Object -ComObject WScript.Shell
     $lnk = $shell.CreateShortcut($startupShortcut)
     $lnk.TargetPath = "wscript.exe"
     $lnk.Arguments = "`"$vbsPath`""
@@ -188,6 +186,7 @@ objShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
     Write-Host "  Starting watcher..."
     Start-Process "wscript.exe" -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden
     Write-Host "  Watcher running." -ForegroundColor Green
+    Write-Log "Watcher installed and started"
 }
 
 Write-Host ""
