@@ -1,6 +1,6 @@
 # Firebat Pro
 
-Custom icon for Firefox. Allows multiple profiles to run simultaneously. Persists through Firefox updates.
+Custom icon for Firefox with profile targeting. External links open in your running profile. Persists through Firefox updates.
 
 ## Requirements
 
@@ -51,7 +51,8 @@ Edit `config.json` to customize settings:
 ## Features
 
 - **Zero dependencies** - Uses only Windows built-ins
-- **Multi-profile support** - Run multiple Firefox instances
+- **Profile targeting** - Opens Firefox with your specified profile
+- **External link handling** - Links from other apps open in your running profile
 - **Auto-persistence** - Survives Firefox updates via FileSystemWatcher
 - **Status command** - Check current state with `-Status`
 - **Log rotation** - Automatic log file rotation at 1MB
