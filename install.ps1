@@ -5,10 +5,20 @@ param(
     [string]$ProfileName,
     [switch]$NoWatcher,
     [switch]$Watch,
-    [switch]$Status
+    [switch]$Status,
+    [switch]$Version
 )
 
+# Single source of truth for the tool version (Semantic Versioning 2.0.0, https://semver.org/).
+$Script:FirebatProVersion = '1.0.0'
+
 $ErrorActionPreference = "Stop"
+
+if ($Version) {
+    Write-Host "Firebat Pro $Script:FirebatProVersion"
+    return
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $scriptPath = $MyInvocation.MyCommand.Path
 
